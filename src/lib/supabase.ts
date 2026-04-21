@@ -82,7 +82,7 @@ export function bmiStatusForAge(bmi: number, age: number | null, gender: 'ชา
   // fallback adult BMI
   if (bmi < 18.5) return { label: 'ผอม',         badge: 'bg-yellow-100 text-yellow-700' }
   if (bmi < 25)   return { label: 'สมส่วน',       badge: 'bg-green-100 text-green-700' }
-  if (bmi < 30)   return { label: 'น้ำหนักเกิน', badge: 'bg-orange-100 text-orange-700' }
+  if (bmi < 30)   return { label: 'เริ่มอ้วน', badge: 'bg-orange-100 text-orange-700' }
   return             { label: 'อ้วน',            badge: 'bg-red-100 text-red-700' }
 }
 
