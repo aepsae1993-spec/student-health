@@ -39,13 +39,11 @@ export const THAI_MONTHS = [
   'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
 ]
 
-// กรมอนามัย / WHO 2007 BMI-for-age: [age, ชาย_P5, ชาย_P85, ชาย_P95, หญิง_P5, หญิง_P85, หญิง_P95]
-// อ้างอิง: กรมอนามัย กระทรวงสาธารณสุข ใช้ WHO 2006 (อายุ 4 ปี) และ WHO 2007 (อายุ 5-18 ปี)
-// ผอม = <P5 | สมส่วน = P5-<P85 | เริ่มอ้วน = P85-<P95 | อ้วน = ≥P95
+// BMI-for-age WHO 2007 (กรมอนามัย)
+// [age, ช_P5, ช_P85, ช_P95, ญ_P5, ญ_P85, ญ_P95]
 const BMI_AGE_REF: [number, number, number, number, number, number, number][] = [
-  // อายุ  ช_P5   ช_P85  ช_P95  ญ_P5   ญ_P85  ญ_P95
-  [4,  13.40, 16.40, 17.80, 13.00, 16.20, 17.60], // WHO 2006
-  [5,  12.77, 16.12, 17.47, 12.53, 16.17, 17.72], // WHO 2007
+  [4,  13.40, 16.40, 17.80, 13.00, 16.20, 17.60],
+  [5,  12.77, 16.12, 17.47, 12.53, 16.17, 17.72],
   [6,  12.56, 16.28, 17.83, 12.41, 16.56, 18.29],
   [7,  12.53, 16.68, 18.53, 12.45, 17.16, 19.10],
   [8,  12.69, 17.30, 19.48, 12.60, 17.87, 20.04],
@@ -61,6 +59,74 @@ const BMI_AGE_REF: [number, number, number, number, number, number, number][] = 
   [18, 16.98, 24.50, 28.14, 16.56, 24.02, 28.16],
 ]
 
+// Weight-for-Age WHO 2006/2007
+// [age, ช_-2SD, ช_+2SD, ญ_-2SD, ญ_+2SD]
+const WEIGHT_AGE_REF: [number, number, number, number, number][] = [
+  [4,  13.8, 19.5, 13.3, 19.0],
+  [5,  14.1, 23.9, 13.7, 23.4],
+  [6,  15.9, 27.1, 15.3, 26.2],
+  [7,  17.8, 30.5, 17.0, 29.1],
+  [8,  20.0, 34.4, 18.9, 32.6],
+  [9,  22.3, 38.6, 21.1, 36.9],
+  [10, 24.8, 43.2, 23.5, 42.0],
+  [11, 27.6, 48.4, 26.3, 47.7],
+  [12, 30.7, 54.0, 29.3, 53.4],
+  [13, 34.2, 59.8, 32.4, 58.5],
+  [14, 38.0, 65.5, 35.4, 63.1],
+  [15, 42.1, 71.3, 37.9, 66.8],
+  [16, 45.9, 76.1, 39.8, 69.3],
+  [17, 49.1, 80.0, 41.1, 70.8],
+  [18, 51.3, 83.6, 41.7, 71.5],
+]
+
+// Height-for-Age WHO 2006/2007
+// [age, ช_-2SD, ช_+2SD, ญ_-2SD, ญ_+2SD]
+const HEIGHT_AGE_REF: [number, number, number, number, number][] = [
+  [4,   96.5, 110.4,  95.0, 110.3],
+  [5,  101.4, 118.3,  99.9, 116.9],
+  [6,  107.1, 124.9, 105.5, 123.4],
+  [7,  112.5, 131.0, 110.8, 129.7],
+  [8,  117.9, 136.8, 115.9, 135.6],
+  [9,  123.0, 142.3, 120.7, 141.2],
+  [10, 127.8, 147.8, 125.2, 146.7],
+  [11, 132.5, 153.7, 129.6, 152.4],
+  [12, 137.4, 160.1, 134.4, 158.3],
+  [13, 142.7, 167.1, 138.7, 163.8],
+  [14, 148.1, 174.0, 142.1, 167.1],
+  [15, 153.0, 179.5, 144.5, 169.4],
+  [16, 156.6, 183.6, 146.0, 170.7],
+  [17, 159.1, 186.8, 146.9, 171.4],
+  [18, 160.6, 188.6, 147.2, 172.1],
+]
+
+export type AssessResult = { label: string; badge: string; short: string }
+
+export function weightStatus(weight: number, age: number | null, gender: 'ชาย' | 'หญิง'): AssessResult | null {
+  if (age === null) return null
+  const clampedAge = Math.min(18, Math.max(4, age))
+  const ref = WEIGHT_AGE_REF.find(r => r[0] === clampedAge)
+  if (!ref) return null
+  const isMale = gender === 'ชาย'
+  const low  = isMale ? ref[1] : ref[3]
+  const high = isMale ? ref[2] : ref[4]
+  if (weight < low)   return { label: 'น้ำหนักน้อยกว่าเกณฑ์', short: 'น้อยกว่าเกณฑ์', badge: 'bg-yellow-100 text-yellow-700' }
+  if (weight <= high) return { label: 'น้ำหนักตามเกณฑ์',      short: 'ตามเกณฑ์',      badge: 'bg-green-100 text-green-700' }
+  return                     { label: 'น้ำหนักมากกว่าเกณฑ์',  short: 'มากกว่าเกณฑ์',  badge: 'bg-orange-100 text-orange-700' }
+}
+
+export function heightStatus(height: number, age: number | null, gender: 'ชาย' | 'หญิง'): AssessResult | null {
+  if (age === null) return null
+  const clampedAge = Math.min(18, Math.max(4, age))
+  const ref = HEIGHT_AGE_REF.find(r => r[0] === clampedAge)
+  if (!ref) return null
+  const isMale = gender === 'ชาย'
+  const low  = isMale ? ref[1] : ref[3]
+  const high = isMale ? ref[2] : ref[4]
+  if (height < low)   return { label: 'ส่วนสูงต่ำกว่าเกณฑ์', short: 'ต่ำกว่าเกณฑ์', badge: 'bg-yellow-100 text-yellow-700' }
+  if (height <= high) return { label: 'ส่วนสูงตามเกณฑ์',     short: 'ตามเกณฑ์',     badge: 'bg-green-100 text-green-700' }
+  return                     { label: 'ส่วนสูงสูงกว่าเกณฑ์',  short: 'สูงกว่าเกณฑ์',  badge: 'bg-blue-100 text-blue-700' }
+}
+
 export type BmiResult = { label: string; badge: string }
 
 export function bmiStatusForAge(bmi: number, age: number | null, gender: 'ชาย' | 'หญิง'): BmiResult {
@@ -70,7 +136,7 @@ export function bmiStatusForAge(bmi: number, age: number | null, gender: 'ชา
     if (ref) {
       const isMale = gender === 'ชาย'
       const [, mp5, mp85, mp95, fp5, fp85, fp95] = ref
-      const p5 = isMale ? mp5 : fp5
+      const p5  = isMale ? mp5  : fp5
       const p85 = isMale ? mp85 : fp85
       const p95 = isMale ? mp95 : fp95
       if (bmi < p5)  return { label: 'ผอม',         badge: 'bg-yellow-100 text-yellow-700' }
@@ -79,10 +145,9 @@ export function bmiStatusForAge(bmi: number, age: number | null, gender: 'ชา
       return           { label: 'อ้วน',            badge: 'bg-red-100 text-red-700' }
     }
   }
-  // fallback adult BMI
   if (bmi < 18.5) return { label: 'ผอม',         badge: 'bg-yellow-100 text-yellow-700' }
   if (bmi < 25)   return { label: 'สมส่วน',       badge: 'bg-green-100 text-green-700' }
-  if (bmi < 30)   return { label: 'เริ่มอ้วน', badge: 'bg-orange-100 text-orange-700' }
+  if (bmi < 30)   return { label: 'น้ำหนักเกิน', badge: 'bg-orange-100 text-orange-700' }
   return             { label: 'อ้วน',            badge: 'bg-red-100 text-red-700' }
 }
 
