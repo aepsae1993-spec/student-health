@@ -223,108 +223,190 @@ export default function RecordPage() {
               <p className="text-slate-400 text-sm mt-1">กรุณาเพิ่มนักเรียนก่อนในหน้าจัดการนักเรียน</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide">
-                    <th className="text-center px-4 py-3 w-12">ที่</th>
-                    <th className="text-left px-4 py-3">ชื่อ-นามสกุล</th>
-                    <th className="text-center px-4 py-3 w-16">เพศ</th>
-                    <th className="text-left px-4 py-3 w-32">น้ำหนัก (กก.)</th>
-                    <th className="text-left px-4 py-3 w-32">ส่วนสูง (ซม.)</th>
-                    <th className="text-left px-4 py-3 w-32">BMI</th>
-                    <th className="px-4 py-3 w-24"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {students.map((s, idx) => {
-                    const inp = inputs[s.id] || { weight: '', height: '' }
-                    const bmi = calcBMI(
-                      inp.weight ? parseFloat(inp.weight) : null,
-                      inp.height ? parseFloat(inp.height) : null
-                    )
-                    const age = calcAge(s.birth_date, selectedYear, selectedMonth)
-                    const status = bmi ? bmiStatusForAge(parseFloat(bmi), age, s.gender) : null
-                    const isSaved = saved[s.id]
-                    const isSaving = saving[s.id]
-                    return (
-                      <tr key={s.id} className={`border-t border-slate-100 transition-colors
-                        ${isSaved ? 'bg-green-50' : idx % 2 === 1 ? 'bg-slate-50/50 hover:bg-slate-50' : 'hover:bg-slate-50'}`}>
-                        <td className="px-4 py-3 text-center text-slate-400 font-medium">{s.student_number}</td>
-                        <td className="px-4 py-3 font-medium text-slate-800">{s.first_name} {s.last_name}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-block w-8 h-8 rounded-full text-xs font-bold leading-8 text-center
-                            ${s.gender === 'ชาย' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
-                            {s.gender === 'ชาย' ? 'ช' : 'ญ'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
+            <>
+              {/* ── MOBILE: Card layout ── */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {students.map((s, idx) => {
+                  const inp = inputs[s.id] || { weight: '', height: '' }
+                  const bmi = calcBMI(
+                    inp.weight ? parseFloat(inp.weight) : null,
+                    inp.height ? parseFloat(inp.height) : null
+                  )
+                  const age = calcAge(s.birth_date, selectedYear, selectedMonth)
+                  const status = bmi ? bmiStatusForAge(parseFloat(bmi), age, s.gender) : null
+                  const isSaved = saved[s.id]
+                  const isSaving = saving[s.id]
+                  return (
+                    <div key={s.id} className={`p-4 transition-colors ${isSaved ? 'bg-green-50' : idx % 2 === 1 ? 'bg-slate-50/60' : ''}`}>
+                      {/* Name row */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="w-7 h-7 rounded-full bg-slate-200 text-slate-600 text-xs font-bold flex items-center justify-center shrink-0">
+                          {s.student_number}
+                        </span>
+                        <span className="font-semibold text-slate-800 text-base flex-1">
+                          {s.first_name} {s.last_name}
+                        </span>
+                        <span className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center shrink-0
+                          ${s.gender === 'ชาย' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
+                          {s.gender === 'ชาย' ? 'ช' : 'ญ'}
+                        </span>
+                      </div>
+
+                      {/* Input row */}
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                          <label className="text-xs font-semibold text-slate-500 block mb-1">น้ำหนัก (กก.)</label>
                           <input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="200"
-                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white"
+                            type="number" inputMode="decimal" step="0.1" min="0" max="200"
+                            className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg font-bold text-slate-800 focus:outline-none focus:border-blue-400 bg-white text-center"
                             value={inp.weight}
                             onChange={e => setInputs(prev => ({ ...prev, [s.id]: { ...prev[s.id], weight: e.target.value } }))}
-                            onKeyDown={e => e.key === 'Enter' && saveRow(s.id)}
-                            placeholder="0.0"
+                            placeholder="—"
                           />
-                        </td>
-                        <td className="px-4 py-3">
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-slate-500 block mb-1">ส่วนสูง (ซม.)</label>
                           <input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="250"
-                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white"
+                            type="number" inputMode="decimal" step="0.1" min="0" max="250"
+                            className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg font-bold text-slate-800 focus:outline-none focus:border-blue-400 bg-white text-center"
                             value={inp.height}
                             onChange={e => setInputs(prev => ({ ...prev, [s.id]: { ...prev[s.id], height: e.target.value } }))}
-                            onKeyDown={e => e.key === 'Enter' && saveRow(s.id)}
-                            placeholder="0.0"
+                            placeholder="—"
                           />
-                        </td>
-                        <td className="px-4 py-3">
-                          {bmi && status && (
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-700">{bmi}</span>
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${status.badge}`}>
+                        </div>
+                      </div>
+
+                      {/* BMI + Save row */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {bmi && status ? (
+                            <>
+                              <span className="text-slate-500 text-sm">BMI</span>
+                              <span className="font-extrabold text-slate-800 text-lg">{bmi}</span>
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${status.badge}`}>
                                 {status.label}
                               </span>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {isSaved ? (
-                            <span className="inline-flex items-center gap-1 text-green-600 text-xs font-semibold">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                              </svg>
-                              บันทึกแล้ว
-                            </span>
+                            </>
                           ) : (
-                            <button
-                              onClick={() => saveRow(s.id)}
-                              disabled={isSaving}
-                              className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                            >
-                              {isSaving ? (
-                                <span className="flex items-center gap-1">
+                            <span className="text-slate-300 text-sm">กรอกข้อมูลเพื่อคำนวณ BMI</span>
+                          )}
+                        </div>
+                        {isSaved ? (
+                          <span className="inline-flex items-center gap-1 text-green-600 text-sm font-bold">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                            บันทึกแล้ว
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => saveRow(s.id)}
+                            disabled={isSaving}
+                            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50 active:scale-95 transition-all shadow-md shadow-blue-200"
+                          >
+                            {isSaving ? (
+                              <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                              </svg>
+                            ) : 'บันทึก'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* ── DESKTOP: Table layout ── */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide">
+                      <th className="text-center px-4 py-3 w-12">ที่</th>
+                      <th className="text-left px-4 py-3">ชื่อ-นามสกุล</th>
+                      <th className="text-center px-4 py-3 w-16">เพศ</th>
+                      <th className="text-left px-4 py-3 w-32">น้ำหนัก (กก.)</th>
+                      <th className="text-left px-4 py-3 w-32">ส่วนสูง (ซม.)</th>
+                      <th className="text-left px-4 py-3 w-36">BMI</th>
+                      <th className="px-4 py-3 w-24"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {students.map((s, idx) => {
+                      const inp = inputs[s.id] || { weight: '', height: '' }
+                      const bmi = calcBMI(
+                        inp.weight ? parseFloat(inp.weight) : null,
+                        inp.height ? parseFloat(inp.height) : null
+                      )
+                      const age = calcAge(s.birth_date, selectedYear, selectedMonth)
+                      const status = bmi ? bmiStatusForAge(parseFloat(bmi), age, s.gender) : null
+                      const isSaved = saved[s.id]
+                      const isSaving = saving[s.id]
+                      return (
+                        <tr key={s.id} className={`border-t border-slate-100 transition-colors
+                          ${isSaved ? 'bg-green-50' : idx % 2 === 1 ? 'bg-slate-50/50 hover:bg-slate-50' : 'hover:bg-slate-50'}`}>
+                          <td className="px-4 py-3 text-center text-slate-400 font-medium">{s.student_number}</td>
+                          <td className="px-4 py-3 font-medium text-slate-800">{s.first_name} {s.last_name}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-block w-8 h-8 rounded-full text-xs font-bold leading-8 text-center
+                              ${s.gender === 'ชาย' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
+                              {s.gender === 'ชาย' ? 'ช' : 'ญ'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <input type="number" step="0.1" min="0" max="200" placeholder="0.0"
+                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white"
+                              value={inp.weight}
+                              onChange={e => setInputs(prev => ({ ...prev, [s.id]: { ...prev[s.id], weight: e.target.value } }))}
+                              onKeyDown={e => e.key === 'Enter' && saveRow(s.id)}
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input type="number" step="0.1" min="0" max="250" placeholder="0.0"
+                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white"
+                              value={inp.height}
+                              onChange={e => setInputs(prev => ({ ...prev, [s.id]: { ...prev[s.id], height: e.target.value } }))}
+                              onKeyDown={e => e.key === 'Enter' && saveRow(s.id)}
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            {bmi && status && (
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-slate-700">{bmi}</span>
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${status.badge}`}>
+                                  {status.label}
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {isSaved ? (
+                              <span className="inline-flex items-center gap-1 text-green-600 text-xs font-semibold">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                </svg>
+                                บันทึกแล้ว
+                              </span>
+                            ) : (
+                              <button onClick={() => saveRow(s.id)} disabled={isSaving}
+                                className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                                {isSaving ? (
                                   <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                                   </svg>
-                                </span>
-                              ) : 'บันทึก'}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                                ) : 'บันทึก'}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       )}
