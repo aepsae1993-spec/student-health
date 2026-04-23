@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback } from 'react'
-import { supabase, type Class, type Student, type Measurement, THAI_MONTHS, calcAge, bmiStatusForAge } from '@/lib/supabase'
+import { supabase, type Class, type Student, type Measurement, THAI_MONTHS, calcAge, bmiStatusForAge, weightStatus, heightStatus } from '@/lib/supabase'
 
 export default function RecordPage() {
   const [classes, setClasses] = useState<Class[]>([])
@@ -228,12 +228,13 @@ export default function RecordPage() {
               <div className="md:hidden divide-y divide-slate-100">
                 {students.map((s, idx) => {
                   const inp = inputs[s.id] || { weight: '', height: '' }
-                  const bmi = calcBMI(
-                    inp.weight ? parseFloat(inp.weight) : null,
-                    inp.height ? parseFloat(inp.height) : null
-                  )
+                  const w = inp.weight ? parseFloat(inp.weight) : null
+                  const h = inp.height ? parseFloat(inp.height) : null
+                  const bmi = calcBMI(w, h)
                   const age = calcAge(s.birth_date, selectedYear, selectedMonth)
-                  const status = bmi ? bmiStatusForAge(parseFloat(bmi), age, s.gender) : null
+                  const bmiSt = bmi ? bmiStatusForAge(parseFloat(bmi), age, s.gender) : null
+                  const wSt = w ? weightStatus(w, age, s.gender) : null
+                  const hSt = h ? heightStatus(h, age, s.gender) : null
                   const isSaved = saved[s.id]
                   const isSaving = saving[s.id]
                   return (
@@ -276,21 +277,34 @@ export default function RecordPage() {
                         </div>
                       </div>
 
-                      {/* BMI + Save row */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {bmi && status ? (
-                            <>
-                              <span className="text-slate-500 text-sm">BMI</span>
-                              <span className="font-extrabold text-slate-800 text-lg">{bmi}</span>
-                              <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${status.badge}`}>
-                                {status.label}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-slate-300 text-sm">กรอกข้อมูลเพื่อคำนวณ BMI</span>
+                      {/* Results row */}
+                      {(wSt || hSt || bmiSt) ? (
+                        <div className="bg-slate-50 rounded-xl p-3 mb-3 space-y-1.5">
+                          {wSt && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500 font-medium">น้ำหนักตามเกณฑ์</span>
+                              <span className={`px-2.5 py-1 rounded-full font-bold ${wSt.badge}`}>{wSt.short}</span>
+                            </div>
+                          )}
+                          {hSt && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500 font-medium">ส่วนสูงตามเกณฑ์</span>
+                              <span className={`px-2.5 py-1 rounded-full font-bold ${hSt.badge}`}>{hSt.short}</span>
+                            </div>
+                          )}
+                          {bmiSt && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500 font-medium">BMI <span className="font-bold text-slate-700">{bmi}</span></span>
+                              <span className={`px-2.5 py-1 rounded-full font-bold ${bmiSt.badge}`}>{bmiSt.label}</span>
+                            </div>
                           )}
                         </div>
+                      ) : (
+                        <p className="text-slate-300 text-xs mb-3">กรอกข้อมูลเพื่อดูผลประเมิน</p>
+                      )}
+
+                      {/* Save button */}
+                      <div className="flex justify-end">
                         {isSaved ? (
                           <span className="inline-flex items-center gap-1 text-green-600 text-sm font-bold">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -299,11 +313,8 @@ export default function RecordPage() {
                             บันทึกแล้ว
                           </span>
                         ) : (
-                          <button
-                            onClick={() => saveRow(s.id)}
-                            disabled={isSaving}
-                            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50 active:scale-95 transition-all shadow-md shadow-blue-200"
-                          >
+                          <button onClick={() => saveRow(s.id)} disabled={isSaving}
+                            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50 active:scale-95 transition-all shadow-md shadow-blue-200">
                             {isSaving ? (
                               <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
@@ -328,19 +339,22 @@ export default function RecordPage() {
                       <th className="text-center px-4 py-3 w-16">เพศ</th>
                       <th className="text-left px-4 py-3 w-32">น้ำหนัก (กก.)</th>
                       <th className="text-left px-4 py-3 w-32">ส่วนสูง (ซม.)</th>
-                      <th className="text-left px-4 py-3 w-36">BMI</th>
+                      <th className="text-left px-4 py-3 w-28">BMI</th>
+                      <th className="text-left px-4 py-3 w-32">น้ำหนัก/เกณฑ์</th>
+                      <th className="text-left px-4 py-3 w-32">ส่วนสูง/เกณฑ์</th>
                       <th className="px-4 py-3 w-24"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {students.map((s, idx) => {
                       const inp = inputs[s.id] || { weight: '', height: '' }
-                      const bmi = calcBMI(
-                        inp.weight ? parseFloat(inp.weight) : null,
-                        inp.height ? parseFloat(inp.height) : null
-                      )
+                      const w = inp.weight ? parseFloat(inp.weight) : null
+                      const h = inp.height ? parseFloat(inp.height) : null
+                      const bmi = calcBMI(w, h)
                       const age = calcAge(s.birth_date, selectedYear, selectedMonth)
                       const status = bmi ? bmiStatusForAge(parseFloat(bmi), age, s.gender) : null
+                      const wSt = w ? weightStatus(w, age, s.gender) : null
+                      const hSt = h ? heightStatus(h, age, s.gender) : null
                       const isSaved = saved[s.id]
                       const isSaving = saving[s.id]
                       return (
@@ -378,6 +392,20 @@ export default function RecordPage() {
                                   {status.label}
                                 </span>
                               </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {wSt && (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${wSt.badge}`}>
+                                {wSt.short}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {hSt && (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${hSt.badge}`}>
+                                {hSt.short}
+                              </span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
