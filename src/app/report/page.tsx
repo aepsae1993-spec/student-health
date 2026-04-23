@@ -1,11 +1,17 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback } from 'react'
-import { supabase, type Class, type Student, THAI_MONTHS, calcAge, bmiStatusForAge, formatThaiDate, exportCSV } from '@/lib/supabase'
+import { supabase, type Class, type Student, THAI_MONTHS, calcAge, bmiStatusForAge, weightStatus, heightStatus, formatThaiDate, exportCSV } from '@/lib/supabase'
 
 type ClassStatus = { class: Class; totalStudents: number; recorded: number; notRecorded: number }
 
-type DetailRow = Student & { weight: number | null; height: number | null; bmi: string | null; bmiLabel: string; age: number | null }
+type DetailRow = Student & {
+  weight: number | null; height: number | null
+  bmi: string | null; bmiLabel: string; bmiBadge: string
+  wLabel: string; wBadge: string
+  hLabel: string; hBadge: string
+  age: number | null
+}
 
 export default function ReportPage() {
   const [classes, setClasses] = useState<Class[]>([])
@@ -67,7 +73,8 @@ export default function ReportPage() {
     const { data: studs } = await supabase
       .from('students').select('*').eq('class_id', cls.id).order('student_number')
     const studentList = (studs || []) as Student[]
-    let rows: DetailRow[] = studentList.map(s => ({ ...s, weight: null, height: null, bmi: null, bmiLabel: '-', age: null }))
+    const emptyRow = { weight: null, height: null, bmi: null, bmiLabel: '-', bmiBadge: '', wLabel: '-', wBadge: '', hLabel: '-', hBadge: '', age: null }
+    let rows: DetailRow[] = studentList.map(s => ({ ...s, ...emptyRow }))
     if (studentList.length > 0) {
       const { data: measData } = await supabase
         .from('measurements').select('*')
@@ -81,8 +88,16 @@ export default function ReportPage() {
         const bmiVal = w && h && h > 0 ? w / Math.pow(h / 100, 2) : null
         const bmiStr = bmiVal ? bmiVal.toFixed(1) : null
         const age = calcAge(s.birth_date, selectedYear, selectedMonth)
-        const status = bmiVal ? bmiStatusForAge(bmiVal, age, s.gender) : null
-        return { ...s, weight: w, height: h, bmi: bmiStr, bmiLabel: status?.label ?? '-', age }
+        const bmiSt = bmiVal ? bmiStatusForAge(bmiVal, age, s.gender) : null
+        const wSt = w ? weightStatus(w, age, s.gender) : null
+        const hSt = h ? heightStatus(h, age, s.gender) : null
+        return {
+          ...s, weight: w, height: h, bmi: bmiStr,
+          bmiLabel: bmiSt?.label ?? '-', bmiBadge: bmiSt?.badge ?? '',
+          wLabel: wSt?.short ?? '-', wBadge: wSt?.badge ?? '',
+          hLabel: hSt?.short ?? '-', hBadge: hSt?.badge ?? '',
+          age
+        }
       })
     }
     setDetailRows(rows)
@@ -101,7 +116,9 @@ export default function ReportPage() {
       'น้ำหนัก (กก.)': r.weight ?? '',
       'ส่วนสูง (ซม.)': r.height ?? '',
       'BMI': r.bmi ?? '',
-      'สถานะ': r.bmiLabel,
+      'ผล BMI': r.bmiLabel,
+      'น้ำหนักตามเกณฑ์': r.wLabel !== '-' ? r.wLabel : '',
+      'ส่วนสูงตามเกณฑ์': r.hLabel !== '-' ? r.hLabel : '',
     }))
     exportCSV(data, `${detailClass.name}_${THAI_MONTHS[selectedMonth - 1]}_${selectedYear + 543}.csv`)
   }
@@ -370,52 +387,64 @@ export default function ReportPage() {
                       <th className="text-right px-4 py-3 w-24">น้ำหนัก (กก.)</th>
                       <th className="text-right px-4 py-3 w-24">ส่วนสูง (ซม.)</th>
                       <th className="text-right px-4 py-3 w-20">BMI</th>
-                      <th className="text-left px-4 py-3 w-28">สถานะ</th>
+                      <th className="text-left px-4 py-3 w-28">ผล BMI</th>
+                      <th className="text-left px-4 py-3 w-32">น้ำหนัก/เกณฑ์</th>
+                      <th className="text-left px-4 py-3 w-32">ส่วนสูง/เกณฑ์</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {detailRows.map((r, idx) => {
-                      const badgeMap: Record<string, string> = {
-                        'ผอม': 'bg-yellow-100 text-yellow-700',
-                        'สมส่วน': 'bg-green-100 text-green-700',
-                        'น้ำหนักเกิน': 'bg-orange-100 text-orange-700',
-                        'อ้วน': 'bg-red-100 text-red-700',
-                      }
-                      return (
-                        <tr key={r.id} className={`border-t border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                          <td className="px-4 py-3 text-center text-slate-400 font-medium">{r.student_number}</td>
-                          <td className="px-4 py-3 font-semibold text-slate-800">{r.first_name} {r.last_name}</td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={`inline-block w-7 h-7 rounded-full text-xs font-bold leading-7 text-center
-                              ${r.gender === 'ชาย' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
-                              {r.gender === 'ชาย' ? 'ช' : 'ญ'}
+                    {detailRows.map((r, idx) => (
+                      <tr key={r.id} className={`border-t border-slate-100 ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                        <td className="px-4 py-3 text-center text-slate-400 font-medium">{r.student_number}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-800">{r.first_name} {r.last_name}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-block w-7 h-7 rounded-full text-xs font-bold leading-7 text-center
+                            ${r.gender === 'ชาย' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
+                            {r.gender === 'ชาย' ? 'ช' : 'ญ'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 text-xs">{formatThaiDate(r.birth_date)}</td>
+                        <td className="px-4 py-3 text-center text-slate-600 font-medium">
+                          {r.age !== null ? `${r.age} ปี` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium text-slate-700">
+                          {r.weight ?? <span className="text-slate-300">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium text-slate-700">
+                          {r.height ?? <span className="text-slate-300">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-slate-800">
+                          {r.bmi ?? <span className="text-slate-300 font-normal">—</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          {r.bmiLabel !== '-' ? (
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${r.bmiBadge}`}>
+                              {r.bmiLabel}
                             </span>
-                          </td>
-                          <td className="px-4 py-3 text-slate-500 text-xs">{formatThaiDate(r.birth_date)}</td>
-                          <td className="px-4 py-3 text-center text-slate-600 font-medium">
-                            {r.age !== null ? `${r.age} ปี` : '-'}
-                          </td>
-                          <td className="px-4 py-3 text-right font-medium text-slate-700">
-                            {r.weight ?? <span className="text-slate-300">—</span>}
-                          </td>
-                          <td className="px-4 py-3 text-right font-medium text-slate-700">
-                            {r.height ?? <span className="text-slate-300">—</span>}
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-slate-800">
-                            {r.bmi ?? <span className="text-slate-300 font-normal">—</span>}
-                          </td>
-                          <td className="px-4 py-3">
-                            {r.bmiLabel !== '-' ? (
-                              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${badgeMap[r.bmiLabel] || 'bg-slate-100 text-slate-600'}`}>
-                                {r.bmiLabel}
-                              </span>
-                            ) : (
-                              <span className="text-slate-300 text-xs">ยังไม่บันทึก</span>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
+                          ) : (
+                            <span className="text-slate-300 text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {r.wLabel !== '-' ? (
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${r.wBadge}`}>
+                              {r.wLabel}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {r.hLabel !== '-' ? (
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${r.hBadge}`}>
+                              {r.hLabel}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 text-xs">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               )}
