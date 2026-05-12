@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback } from 'react'
-import { supabase, type Class, type Student, type Measurement, THAI_MONTHS } from '@/lib/supabase'
+import { supabase, type Class, type Student, type Measurement, THAI_MONTHS, calcAgeMonths, weightForHeightStatus, weightStatus, heightStatus } from '@/lib/supabase'
 
 export default function RecordPage() {
   const [classes, setClasses] = useState<Class[]>([])
@@ -14,6 +14,7 @@ export default function RecordPage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState<Record<string, boolean>>({})
   const [saved, setSaved] = useState<Record<string, boolean>>({})
+  const [savingAll, setSavingAll] = useState(false)
 
   useEffect(() => {
     supabase.from('classes').select('*').order('order_num').then(({ data }) => {
@@ -93,48 +94,54 @@ export default function RecordPage() {
   }
 
   async function saveAll() {
-    for (const student of students) {
-      const inp = inputs[student.id]
-      if (inp?.weight || inp?.height) {
-        await saveRow(student.id)
-      }
-    }
+    const rows = students
+      .filter(s => inputs[s.id]?.weight || inputs[s.id]?.height)
+      .map(s => ({
+        student_id: s.id,
+        month: selectedMonth,
+        year: selectedYear,
+        weight: inputs[s.id]?.weight ? parseFloat(inputs[s.id].weight) : null,
+        height: inputs[s.id]?.height ? parseFloat(inputs[s.id].height) : null,
+      }))
+    if (rows.length === 0) return
+    setSavingAll(true)
+    await supabase.from('measurements').upsert(rows, { onConflict: 'student_id,month,year' })
+    await loadData()
+    setSavingAll(false)
   }
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
   const thaiYear = (y: number) => y + 543
 
-  function calcBMI(weight: number | null, height: number | null) {
-    if (!weight || !height || height === 0) return null
-    const bmi = weight / Math.pow(height / 100, 2)
-    return bmi.toFixed(1)
-  }
-
-  function bmiStatus(bmi: string | null) {
-    if (!bmi) return null
-    const b = parseFloat(bmi)
-    if (b < 18.5) return { label: 'ผอม', color: 'text-yellow-600' }
-    if (b < 25) return { label: 'ปกติ', color: 'text-green-600' }
-    if (b < 30) return { label: 'น้ำหนักเกิน', color: 'text-orange-500' }
-    return { label: 'อ้วน', color: 'text-red-600' }
-  }
-
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">📏 บันทึกน้ำหนัก-ส่วนสูง</h1>
+      {/* Page header */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">บันทึกน้ำหนัก-ส่วนสูง</h1>
+          <p className="text-slate-500 text-sm">กรอกข้อมูลรายเดือนของนักเรียนแต่ละชั้น</p>
+        </div>
+      </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow p-4 mb-6">
-        <div className="flex flex-wrap gap-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
+        <div className="flex flex-wrap gap-6">
           <div>
-            <label className="text-xs text-gray-500 block mb-1">ชั้นเรียน</label>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-2">ชั้นเรียน</label>
             <div className="flex flex-wrap gap-2">
               {classes.map(c => (
                 <button
                   key={c.id}
                   onClick={() => setSelectedClass(c.id)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                    ${selectedClass === c.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200
+                    ${selectedClass === c.id
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-200'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 >
                   {c.name}
                 </button>
@@ -142,9 +149,9 @@ export default function RecordPage() {
             </div>
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">เดือน</label>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-2">เดือน</label>
             <select
-              className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
               value={selectedMonth}
               onChange={e => setSelectedMonth(Number(e.target.value))}
             >
@@ -154,9 +161,9 @@ export default function RecordPage() {
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">ปี (พ.ศ.)</label>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-2">ปี (พ.ศ.)</label>
             <select
-              className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
               value={selectedYear}
               onChange={e => setSelectedYear(Number(e.target.value))}
             >
@@ -169,115 +176,272 @@ export default function RecordPage() {
       </div>
 
       {selectedClass && (
-        <div className="bg-white rounded-xl shadow p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-700">
-              {classes.find(c => c.id === selectedClass)?.name} — {THAI_MONTHS[selectedMonth - 1]} {thaiYear(selectedYear)}
-            </h2>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          {/* Table header bar */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <div>
+              <span className="font-bold text-slate-800 text-base">
+                {classes.find(c => c.id === selectedClass)?.name}
+              </span>
+              <span className="text-slate-400 mx-2">—</span>
+              <span className="text-slate-600 text-sm">{THAI_MONTHS[selectedMonth - 1]} {thaiYear(selectedYear)}</span>
+            </div>
             {students.length > 0 && (
               <button
                 onClick={saveAll}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 shadow-md shadow-blue-200 transition-all"
               >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
                 บันทึกทั้งหมด
               </button>
             )}
           </div>
 
           {loading ? (
-            <div className="text-center py-8 text-gray-400">กำลังโหลด...</div>
-          ) : students.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">ยังไม่มีนักเรียนในชั้นนี้ กรุณาเพิ่มนักเรียนก่อน</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 text-gray-600">
-                    <th className="text-left px-3 py-2 w-10">ที่</th>
-                    <th className="text-left px-3 py-2">ชื่อ-สกุล</th>
-                    <th className="text-left px-3 py-2 w-16">เพศ</th>
-                    <th className="text-left px-3 py-2 w-28">น้ำหนัก (กก.)</th>
-                    <th className="text-left px-3 py-2 w-28">ส่วนสูง (ซม.)</th>
-                    <th className="text-left px-3 py-2 w-24">BMI</th>
-                    <th className="px-3 py-2 w-20"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {students.map(s => {
-                    const inp = inputs[s.id] || { weight: '', height: '' }
-                    const bmi = calcBMI(
-                      inp.weight ? parseFloat(inp.weight) : null,
-                      inp.height ? parseFloat(inp.height) : null
-                    )
-                    const status = bmiStatus(bmi)
-                    const isSaved = saved[s.id]
-                    const isSaving = saving[s.id]
-                    return (
-                      <tr key={s.id} className={`border-t ${isSaved ? 'bg-green-50' : 'hover:bg-gray-50'}`}>
-                        <td className="px-3 py-2 text-gray-500">{s.student_number}</td>
-                        <td className="px-3 py-2">{s.first_name} {s.last_name}</td>
-                        <td className="px-3 py-2">
-                          <span className={`text-xs ${s.gender === 'ชาย' ? 'text-blue-600' : 'text-pink-600'}`}>
-                            {s.gender}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="200"
-                            className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-                            value={inp.weight}
-                            onChange={e => setInputs(prev => ({
-                              ...prev,
-                              [s.id]: { ...prev[s.id], weight: e.target.value }
-                            }))}
-                            onKeyDown={e => e.key === 'Enter' && saveRow(s.id)}
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="250"
-                            className="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-                            value={inp.height}
-                            onChange={e => setInputs(prev => ({
-                              ...prev,
-                              [s.id]: { ...prev[s.id], height: e.target.value }
-                            }))}
-                            onKeyDown={e => e.key === 'Enter' && saveRow(s.id)}
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          {bmi && (
-                            <span className={`font-medium ${status?.color}`}>
-                              {bmi} <span className="text-xs">({status?.label})</span>
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          {isSaved ? (
-                            <span className="text-green-600 text-xs font-medium">✓ บันทึกแล้ว</span>
-                          ) : (
-                            <button
-                              onClick={() => saveRow(s.id)}
-                              disabled={isSaving}
-                              className="bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 disabled:opacity-50"
-                            >
-                              {isSaving ? '...' : 'บันทึก'}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+            <div className="flex items-center justify-center py-16 gap-3 text-slate-400">
+              <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+              กำลังโหลด...
             </div>
+          ) : students.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+              <p className="text-slate-500 font-medium">ยังไม่มีนักเรียนในชั้นนี้</p>
+              <p className="text-slate-400 text-sm mt-1">กรุณาเพิ่มนักเรียนก่อนในหน้าจัดการนักเรียน</p>
+            </div>
+          ) : (
+            <>
+              {/* ── MOBILE: Card layout ── */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {students.map((s, idx) => {
+                  const inp = inputs[s.id] || { weight: '', height: '' }
+                  const w = inp.weight ? parseFloat(inp.weight) : null
+                  const h = inp.height ? parseFloat(inp.height) : null
+                  const ageMonths = calcAgeMonths(s.birth_date, selectedYear, selectedMonth)
+                  const whSt = (w && h) ? weightForHeightStatus(w, h, s.gender) : null
+                  const wSt = w ? weightStatus(w, ageMonths, s.gender) : null
+                  const hSt = h ? heightStatus(h, ageMonths, s.gender) : null
+                  const isSaved = saved[s.id]
+                  const isSaving = saving[s.id]
+                  return (
+                    <div key={s.id} className={`p-4 transition-colors ${isSaved ? 'bg-green-50' : idx % 2 === 1 ? 'bg-slate-50/60' : ''}`}>
+                      {/* Name row */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="w-7 h-7 rounded-full bg-slate-200 text-slate-600 text-xs font-bold flex items-center justify-center shrink-0">
+                          {s.student_number}
+                        </span>
+                        <span className="font-semibold text-slate-800 text-base flex-1">
+                          {s.first_name} {s.last_name}
+                        </span>
+                        <span className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center shrink-0
+                          ${s.gender === 'ชาย' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
+                          {s.gender === 'ชาย' ? 'ช' : 'ญ'}
+                        </span>
+                      </div>
+
+                      {/* Input row */}
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                          <label className="text-xs font-semibold text-slate-500 block mb-1">น้ำหนัก (กก.)</label>
+                          <input
+                            type="number" inputMode="decimal" step="0.1" min="0" max="200"
+                            className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg font-bold text-slate-800 focus:outline-none focus:border-blue-400 bg-white text-center"
+                            value={inp.weight}
+                            onChange={e => setInputs(prev => ({ ...prev, [s.id]: { ...prev[s.id], weight: e.target.value } }))}
+                            placeholder="—"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-slate-500 block mb-1">ส่วนสูง (ซม.)</label>
+                          <input
+                            type="number" inputMode="decimal" step="0.1" min="0" max="250"
+                            className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg font-bold text-slate-800 focus:outline-none focus:border-blue-400 bg-white text-center"
+                            value={inp.height}
+                            onChange={e => setInputs(prev => ({ ...prev, [s.id]: { ...prev[s.id], height: e.target.value } }))}
+                            placeholder="—"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Results row */}
+                      {(wSt || hSt || whSt) ? (
+                        <div className="bg-slate-50 rounded-xl p-3 mb-3 space-y-1.5">
+                          {wSt && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500 font-medium">น้ำหนักตามเกณฑ์</span>
+                              <span className={`px-2.5 py-1 rounded-full font-bold ${wSt.badge}`}>{wSt.short}</span>
+                            </div>
+                          )}
+                          {hSt && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500 font-medium">ส่วนสูงตามเกณฑ์</span>
+                              <span className={`px-2.5 py-1 rounded-full font-bold ${hSt.badge}`}>{hSt.short}</span>
+                            </div>
+                          )}
+                          {whSt && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500 font-medium">น้ำหนัก/ส่วนสูง</span>
+                              <span className={`px-2.5 py-1 rounded-full font-bold ${whSt.badge}`}>{whSt.short}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-slate-300 text-xs mb-3">กรอกข้อมูลเพื่อดูผลประเมิน</p>
+                      )}
+
+                      {/* Save button */}
+                      <div className="flex justify-end">
+                        {isSaved ? (
+                          <span className="inline-flex items-center gap-1 text-green-600 text-sm font-bold">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                            บันทึกแล้ว
+                          </span>
+                        ) : (
+                          <button onClick={() => saveRow(s.id)} disabled={isSaving}
+                            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50 active:scale-95 transition-all shadow-md shadow-blue-200">
+                            {isSaving ? (
+                              <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                              </svg>
+                            ) : 'บันทึก'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* ── DESKTOP: Table layout ── */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wide">
+                      <th className="text-center px-4 py-3 w-12">ที่</th>
+                      <th className="text-left px-4 py-3">ชื่อ-นามสกุล</th>
+                      <th className="text-center px-4 py-3 w-16">เพศ</th>
+                      <th className="text-left px-4 py-3 w-32">น้ำหนัก (กก.)</th>
+                      <th className="text-left px-4 py-3 w-32">ส่วนสูง (ซม.)</th>
+                      <th className="text-left px-4 py-3 w-28">น้ำหนัก/ส่วนสูง</th>
+                      <th className="text-left px-4 py-3 w-32">น้ำหนัก/เกณฑ์</th>
+                      <th className="text-left px-4 py-3 w-32">ส่วนสูง/เกณฑ์</th>
+                      <th className="px-4 py-3 w-24"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {students.map((s, idx) => {
+                      const inp = inputs[s.id] || { weight: '', height: '' }
+                      const w = inp.weight ? parseFloat(inp.weight) : null
+                      const h = inp.height ? parseFloat(inp.height) : null
+                      const ageMonths = calcAgeMonths(s.birth_date, selectedYear, selectedMonth)
+                      const whSt = (w && h) ? weightForHeightStatus(w, h, s.gender) : null
+                      const wSt = w ? weightStatus(w, ageMonths, s.gender) : null
+                      const hSt = h ? heightStatus(h, ageMonths, s.gender) : null
+                      const isSaved = saved[s.id]
+                      const isSaving = saving[s.id]
+                      return (
+                        <tr key={s.id} className={`border-t border-slate-100 transition-colors
+                          ${isSaved ? 'bg-green-50' : idx % 2 === 1 ? 'bg-slate-50/50 hover:bg-slate-50' : 'hover:bg-slate-50'}`}>
+                          <td className="px-4 py-3 text-center text-slate-400 font-medium">{s.student_number}</td>
+                          <td className="px-4 py-3 font-medium text-slate-800">{s.first_name} {s.last_name}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-block w-8 h-8 rounded-full text-xs font-bold leading-8 text-center
+                              ${s.gender === 'ชาย' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
+                              {s.gender === 'ชาย' ? 'ช' : 'ญ'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <input type="number" step="0.1" min="0" max="200" placeholder="0.0"
+                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white"
+                              value={inp.weight}
+                              onChange={e => setInputs(prev => ({ ...prev, [s.id]: { ...prev[s.id], weight: e.target.value } }))}
+                              onKeyDown={e => e.key === 'Enter' && saveRow(s.id)}
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input type="number" step="0.1" min="0" max="250" placeholder="0.0"
+                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white"
+                              value={inp.height}
+                              onChange={e => setInputs(prev => ({ ...prev, [s.id]: { ...prev[s.id], height: e.target.value } }))}
+                              onKeyDown={e => e.key === 'Enter' && saveRow(s.id)}
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            {whSt && (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${whSt.badge}`}>
+                                {whSt.short}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {wSt && (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${wSt.badge}`}>
+                                {wSt.short}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {hSt && (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${hSt.badge}`}>
+                                {hSt.short}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {isSaved ? (
+                              <span className="inline-flex items-center gap-1 text-green-600 text-xs font-semibold">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                </svg>
+                                บันทึกแล้ว
+                              </span>
+                            ) : (
+                              <button onClick={() => saveRow(s.id)} disabled={isSaving}
+                                className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                                {isSaving ? (
+                                  <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                  </svg>
+                                ) : 'บันทึก'}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
+        </div>
+      )}
+
+      {/* Saving overlay */}
+      {savingAll && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl px-14 py-10 flex flex-col items-center gap-5">
+            <div className="relative w-16 h-16">
+              <div className="absolute inset-0 rounded-full border-4 border-blue-100" />
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-600 animate-spin" />
+            </div>
+            <div className="text-center">
+              <p className="text-slate-800 font-bold text-xl">กำลังอัปข้อมูล</p>
+              <p className="text-slate-400 text-sm mt-1">กรุณารอสักครู่...</p>
+            </div>
+          </div>
         </div>
       )}
     </div>

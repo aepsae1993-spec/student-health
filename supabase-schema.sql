@@ -54,3 +54,6 @@ alter table measurements enable row level security;
 create policy "Allow all on classes" on classes for all using (true);
 create policy "Allow all on students" on students for all using (true);
 create policy "Allow all on measurements" on measurements for all using (true);
+
+-- เพิ่มคอลัมน์วันเกิด (รันเพิ่มถ้ามีฐานข้อมูลเดิมอยู่แล้ว)
+alter table students add column if not exists birth_date date;
