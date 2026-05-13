@@ -552,14 +552,17 @@ const AGE_F: Record<number, [number, number, number, number, number, number, num
 export type AssessResult = { label: string; badge: string; short: string }
 
 // คำนวณอายุเป็นเดือน (สำหรับ lookup ตาราง สพฐ)
+// นับเฉพาะเดือนที่ครบแล้ว (เหมือน Excel: DATEDIF(birth, today, "m"))
 export function calcAgeMonths(birthDate: string | null, year: number, month: number): number | null {
   if (!birthDate) return null
   const birth = new Date(birthDate)
   if (isNaN(birth.getTime())) return null
-  const measure = new Date(year, month - 1, 15)
-  const totalMonths =
+  const measure = new Date(year, month - 1, 15)  // กลางเดือนที่บันทึก
+  let totalMonths =
     (measure.getFullYear() - birth.getFullYear()) * 12 +
     (measure.getMonth() - birth.getMonth())
+  // หักออก 1 ถ้ายังไม่ถึงวันเกิดของเดือนนั้น (นับเฉพาะเดือนที่ครบ)
+  if (measure.getDate() < birth.getDate()) totalMonths--
   return totalMonths < 0 ? null : totalMonths
 }
 
