@@ -1,7 +1,13 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback } from 'react'
-import { supabase, type Class, type Student, type Measurement, THAI_MONTHS, calcAgeMonths, weightForHeightStatus, weightStatus, heightStatus, daysInMonth } from '@/lib/supabase'
+import { supabase, type Class, type Student, type Measurement, THAI_MONTHS, calcAgeMonths, weightForHeightStatus, weightStatus, heightStatus, daysInMonth, formatThaiDate } from '@/lib/supabase'
+
+// แสดงอายุเป็น "X ปี Y เดือน"
+function formatAge(months: number | null): string {
+  if (months === null) return '—'
+  return `${Math.floor(months / 12)} ปี ${months % 12} เดือน`
+}
 
 export default function RecordPage() {
   const [classes, setClasses] = useState<Class[]>([])
@@ -257,9 +263,15 @@ export default function RecordPage() {
                         <span className="w-7 h-7 rounded-full bg-slate-200 text-slate-600 text-xs font-bold flex items-center justify-center shrink-0">
                           {s.student_number}
                         </span>
-                        <span className="font-semibold text-slate-800 text-base flex-1">
-                          {s.first_name} {s.last_name}
-                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-slate-800 text-base truncate">
+                            {s.first_name} {s.last_name}
+                          </div>
+                          <div className="text-xs text-slate-400 mt-0.5">
+                            {s.birth_date && <>เกิด {formatThaiDate(s.birth_date)} · </>}
+                            อายุ {formatAge(ageMonths)}
+                          </div>
+                        </div>
                         <span className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center shrink-0
                           ${s.gender === 'ชาย' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
                           {s.gender === 'ชาย' ? 'ช' : 'ญ'}
@@ -373,7 +385,13 @@ export default function RecordPage() {
                         <tr key={s.id} className={`border-t border-slate-100 transition-colors
                           ${isSaved ? 'bg-green-50' : idx % 2 === 1 ? 'bg-slate-50/50 hover:bg-slate-50' : 'hover:bg-slate-50'}`}>
                           <td className="px-4 py-3 text-center text-slate-400 font-medium">{s.student_number}</td>
-                          <td className="px-4 py-3 font-medium text-slate-800">{s.first_name} {s.last_name}</td>
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-slate-800">{s.first_name} {s.last_name}</div>
+                            <div className="text-xs text-slate-400 mt-0.5">
+                              {s.birth_date && <>เกิด {formatThaiDate(s.birth_date)} · </>}
+                              อายุ {formatAge(ageMonths)}
+                            </div>
+                          </td>
                           <td className="px-4 py-3 text-center">
                             <span className={`inline-block w-8 h-8 rounded-full text-xs font-bold leading-8 text-center
                               ${s.gender === 'ชาย' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
