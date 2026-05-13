@@ -551,13 +551,33 @@ const AGE_F: Record<number, [number, number, number, number, number, number, num
 
 export type AssessResult = { label: string; badge: string; short: string }
 
+// จำนวนวันของเดือน
+export function daysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate()
+}
+
+// Parse "YYYY-MM-DD" เป็น Date (local time) — เลี่ยงปัญหา timezone
+function parseLocalDate(s: string): Date | null {
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return null
+  const d = new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]))
+  return isNaN(d.getTime()) ? null : d
+}
+
 // คำนวณอายุเป็นเดือน (สำหรับ lookup ตาราง สพฐ)
 // นับเฉพาะเดือนที่ครบแล้ว (เหมือน Excel: DATEDIF(birth, today, "m"))
-export function calcAgeMonths(birthDate: string | null, year: number, month: number): number | null {
+export function calcAgeMonths(
+  birthDate: string | null,
+  year: number,
+  month: number,
+  day: number = 15
+): number | null {
   if (!birthDate) return null
-  const birth = new Date(birthDate)
-  if (isNaN(birth.getTime())) return null
-  const measure = new Date(year, month - 1, 15)  // กลางเดือนที่บันทึก
+  const birth = parseLocalDate(birthDate)
+  if (!birth) return null
+  const maxDay = daysInMonth(year, month)
+  const safeDay = Math.min(Math.max(1, day), maxDay)
+  const measure = new Date(year, month - 1, safeDay)
   let totalMonths =
     (measure.getFullYear() - birth.getFullYear()) * 12 +
     (measure.getMonth() - birth.getMonth())
@@ -567,23 +587,43 @@ export function calcAgeMonths(birthDate: string | null, year: number, month: num
 }
 
 // คำนวณอายุเป็นปี (สำหรับแสดงผล)
-export function calcAge(birthDate: string | null, year: number, month: number): number | null {
+export function calcAge(
+  birthDate: string | null,
+  year: number,
+  month: number,
+  day: number = 15
+): number | null {
   if (!birthDate) return null
-  const birth = new Date(birthDate)
-  if (isNaN(birth.getTime())) return null
-  const measure = new Date(year, month - 1, 15)
+  const birth = parseLocalDate(birthDate)
+  if (!birth) return null
+  const maxDay = daysInMonth(year, month)
+  const safeDay = Math.min(Math.max(1, day), maxDay)
+  const measure = new Date(year, month - 1, safeDay)
   let age = measure.getFullYear() - birth.getFullYear()
   const m = measure.getMonth() - birth.getMonth()
   if (m < 0 || (m === 0 && measure.getDate() < birth.getDate())) age--
   return age
 }
 
+// คืนค่าเศษเดือนของอายุ (สำหรับแสดง "X ปี Y เดือน")
+export function calcAgeYearMonth(
+  birthDate: string | null,
+  year: number,
+  month: number,
+  day: number = 15
+): { y: number; m: number } | null {
+  const totalMonths = calcAgeMonths(birthDate, year, month, day)
+  if (totalMonths === null) return null
+  return { y: Math.floor(totalMonths / 12), m: totalMonths % 12 }
+}
+
 // น้ำหนักเทียบกับอายุ (สพฐ 5 ระดับ)
 // AGE[m] = [w-2SD, w-1.5SD, w+1.5SD, w+2SD, ...]
 export function weightStatus(weight: number, ageMonths: number | null, gender: 'ชาย' | 'หญิง'): AssessResult | null {
   if (ageMonths === null) return null
-  const clamp = Math.min(216, Math.max(48, Math.round(ageMonths)))
-  const ref = gender === 'ชาย' ? AGE_M[clamp] : AGE_F[clamp]
+  const m = Math.round(ageMonths)
+  if (m < 48 || m > 216) return null
+  const ref = gender === 'ชาย' ? AGE_M[m] : AGE_F[m]
   if (!ref) return null
   const [w2, w15, wp15, wp2] = ref
   if (weight < w2)   return { label: 'น้ำหนักน้อยกว่าเกณฑ์',  short: 'น้อยกว่าเกณฑ์',  badge: 'bg-red-100 text-red-700' }
@@ -597,8 +637,9 @@ export function weightStatus(weight: number, ageMonths: number | null, gender: '
 // AGE[m] = [..., h-2SD, h-1.5SD, h+1.5SD, h+2SD]
 export function heightStatus(height: number, ageMonths: number | null, gender: 'ชาย' | 'หญิง'): AssessResult | null {
   if (ageMonths === null) return null
-  const clamp = Math.min(216, Math.max(48, Math.round(ageMonths)))
-  const ref = gender === 'ชาย' ? AGE_M[clamp] : AGE_F[clamp]
+  const m = Math.round(ageMonths)
+  if (m < 48 || m > 216) return null
+  const ref = gender === 'ชาย' ? AGE_M[m] : AGE_F[m]
   if (!ref) return null
   const [,,,, h2, h15, hp15, hp2] = ref
   if (height < h2)   return { label: 'เตี้ย',           short: 'เตี้ย',           badge: 'bg-red-100 text-red-700' }

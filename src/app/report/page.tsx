@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback } from 'react'
-import { supabase, type Class, type Student, THAI_MONTHS, calcAge, calcAgeMonths, weightForHeightStatus, weightStatus, heightStatus, formatThaiDate, exportCSV } from '@/lib/supabase'
+import { supabase, type Class, type Student, THAI_MONTHS, calcAge, calcAgeMonths, weightForHeightStatus, weightStatus, heightStatus, formatThaiDate, exportCSV, daysInMonth } from '@/lib/supabase'
 
 type ClassStatus = { class: Class; totalStudents: number; recorded: number; notRecorded: number }
 
@@ -11,12 +11,14 @@ type DetailRow = Student & {
   wLabel: string; wBadge: string
   hLabel: string; hBadge: string
   age: number | null
+  ageMonth: number | null
 }
 
 export default function ReportPage() {
   const [classes, setClasses] = useState<Class[]>([])
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [selectedDay, setSelectedDay] = useState(new Date().getDate())
   const [statuses, setStatuses] = useState<ClassStatus[]>([])
   const [loading, setLoading] = useState(false)
   const [detailClass, setDetailClass] = useState<Class | null>(null)
@@ -67,13 +69,19 @@ export default function ReportPage() {
     loadReport()
   }, [loadReport])
 
+  // รีโหลด detail modal เมื่อเปลี่ยน วัน/เดือน/ปี
+  useEffect(() => {
+    if (detailClass) openDetail(detailClass)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDay, selectedMonth, selectedYear])
+
   async function openDetail(cls: Class) {
     setDetailClass(cls)
     setDetailLoading(true)
     const { data: studs } = await supabase
       .from('students').select('*').eq('class_id', cls.id).order('student_number')
     const studentList = (studs || []) as Student[]
-    const emptyRow = { weight: null, height: null, bmi: null, bmiLabel: '-', bmiBadge: '', wLabel: '-', wBadge: '', hLabel: '-', hBadge: '', age: null }
+    const emptyRow = { weight: null, height: null, bmi: null, bmiLabel: '-', bmiBadge: '', wLabel: '-', wBadge: '', hLabel: '-', hBadge: '', age: null, ageMonth: null }
     let rows: DetailRow[] = studentList.map(s => ({ ...s, ...emptyRow }))
     if (studentList.length > 0) {
       const { data: measData } = await supabase
@@ -87,8 +95,9 @@ export default function ReportPage() {
         const h = m?.height ?? null
         const bmiVal = w && h && h > 0 ? w / Math.pow(h / 100, 2) : null
         const bmiStr = bmiVal ? bmiVal.toFixed(1) : null
-        const age = calcAge(s.birth_date, selectedYear, selectedMonth)
-        const ageMonths = calcAgeMonths(s.birth_date, selectedYear, selectedMonth)
+        const age = calcAge(s.birth_date, selectedYear, selectedMonth, selectedDay)
+        const ageMonths = calcAgeMonths(s.birth_date, selectedYear, selectedMonth, selectedDay)
+        const ageMonth = ageMonths !== null ? ageMonths % 12 : null
         const whSt = (w && h) ? weightForHeightStatus(w, h, s.gender) : null
         const wSt = w ? weightStatus(w, ageMonths, s.gender) : null
         const hSt = h ? heightStatus(h, ageMonths, s.gender) : null
@@ -97,7 +106,7 @@ export default function ReportPage() {
           bmiLabel: whSt?.short ?? '-', bmiBadge: whSt?.badge ?? '',
           wLabel: wSt?.short ?? '-', wBadge: wSt?.badge ?? '',
           hLabel: hSt?.short ?? '-', hBadge: hSt?.badge ?? '',
-          age
+          age, ageMonth,
         }
       })
     }
@@ -114,6 +123,7 @@ export default function ReportPage() {
       'เพศ': r.gender,
       'วันเกิด': formatThaiDate(r.birth_date),
       'อายุ (ปี)': r.age ?? '',
+      'อายุ (เดือน)': r.ageMonth ?? '',
       'น้ำหนัก (กก.)': r.weight ?? '',
       'ส่วนสูง (ซม.)': r.height ?? '',
       'BMI': r.bmi ?? '',
@@ -122,14 +132,6 @@ export default function ReportPage() {
       'ส่วนสูงตามเกณฑ์': r.hLabel !== '-' ? r.hLabel : '',
     }))
     exportCSV(data, `${detailClass.name}_${THAI_MONTHS[selectedMonth - 1]}_${selectedYear + 543}.csv`)
-  }
-
-  function downloadAllExcel() {
-    const data = statuses.flatMap(s =>
-      Array.from({ length: 0 }, () => ({}))
-    )
-    // Re-fetch not practical here; guide user to open each class
-    alert('กรุณาเปิดดูรายชั้นแล้วกด "โหลด Excel" เพื่อดาวน์โหลดทีละชั้น')
   }
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
@@ -159,6 +161,18 @@ export default function ReportPage() {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
         <div className="flex flex-wrap gap-5 items-end">
           <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-2">วันที่</label>
+            <select
+              className="border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 font-medium bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent"
+              value={Math.min(selectedDay, daysInMonth(selectedYear, selectedMonth))}
+              onChange={e => setSelectedDay(Number(e.target.value))}
+            >
+              {Array.from({ length: daysInMonth(selectedYear, selectedMonth) }, (_, i) => i + 1).map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-2">เดือน</label>
             <select
               className="border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 font-medium bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent"
@@ -183,6 +197,12 @@ export default function ReportPage() {
             </select>
           </div>
         </div>
+        <p className="text-xs text-slate-400 mt-3">
+          <svg className="w-3.5 h-3.5 inline -mt-0.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          วันที่ใช้สำหรับคำนวณอายุนักเรียน (ตามมาตรฐาน สพฐ)
+        </p>
       </div>
 
       {/* Summary cards */}
@@ -348,9 +368,9 @@ export default function ReportPage() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
               <div>
                 <h3 className="font-bold text-slate-800 text-lg">
-                  {detailClass.name} — {THAI_MONTHS[selectedMonth - 1]} {selectedYear + 543}
+                  {detailClass.name} — {selectedDay} {THAI_MONTHS[selectedMonth - 1]} {selectedYear + 543}
                 </h3>
-                <p className="text-slate-400 text-sm mt-0.5">รายชื่อและข้อมูลน้ำหนัก-ส่วนสูง</p>
+                <p className="text-slate-400 text-sm mt-0.5">รายชื่อและข้อมูลน้ำหนัก-ส่วนสูง (อายุ ณ วันที่เลือก)</p>
               </div>
               <div className="flex items-center gap-3">
                 <button onClick={downloadExcel}
@@ -384,7 +404,7 @@ export default function ReportPage() {
                       <th className="text-left px-4 py-3">ชื่อ-นามสกุล</th>
                       <th className="text-center px-4 py-3 w-12">เพศ</th>
                       <th className="text-left px-4 py-3 w-28">วันเกิด</th>
-                      <th className="text-center px-4 py-3 w-16">อายุ</th>
+                      <th className="text-center px-4 py-3 w-24">อายุ</th>
                       <th className="text-right px-4 py-3 w-24">น้ำหนัก (กก.)</th>
                       <th className="text-right px-4 py-3 w-24">ส่วนสูง (ซม.)</th>
                       <th className="text-right px-4 py-3 w-20">BMI</th>
@@ -405,8 +425,10 @@ export default function ReportPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-slate-500 text-xs">{formatThaiDate(r.birth_date)}</td>
-                        <td className="px-4 py-3 text-center text-slate-600 font-medium">
-                          {r.age !== null ? `${r.age} ปี` : '-'}
+                        <td className="px-4 py-3 text-center text-slate-600 font-medium whitespace-nowrap">
+                          {r.age !== null && r.ageMonth !== null
+                            ? <><span className="font-bold">{r.age}</span><span className="text-slate-400 text-xs"> ป </span><span className="font-bold">{r.ageMonth}</span><span className="text-slate-400 text-xs"> ด</span></>
+                            : '-'}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-slate-700">
                           {r.weight ?? <span className="text-slate-300">—</span>}
