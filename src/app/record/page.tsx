@@ -22,6 +22,8 @@ export default function RecordPage() {
   const [saving, setSaving] = useState<Record<string, boolean>>({})
   const [saved, setSaved] = useState<Record<string, boolean>>({})
   const [savingAll, setSavingAll] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     supabase.from('classes').select('*').order('order_num').then(({ data }) => {
@@ -116,6 +118,24 @@ export default function RecordPage() {
     await loadData()
     setSavingAll(false)
   }
+
+  async function deleteMonth() {
+    if (!selectedClass || students.length === 0) return
+    setDeleting(true)
+    const ids = students.map(s => s.id)
+    await supabase
+      .from('measurements')
+      .delete()
+      .in('student_id', ids)
+      .eq('month', selectedMonth)
+      .eq('year', selectedYear)
+    setShowDeleteConfirm(false)
+    await loadData()
+    setDeleting(false)
+  }
+
+  // จำนวนรายการที่บันทึกแล้วในเดือนนี้
+  const recordedCount = Object.keys(measurements).length
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
   const thaiYear = (y: number) => y + 543
@@ -212,15 +232,30 @@ export default function RecordPage() {
               <span className="text-slate-600 text-sm">{THAI_MONTHS[selectedMonth - 1]} {thaiYear(selectedYear)}</span>
             </div>
             {students.length > 0 && (
-              <button
-                onClick={saveAll}
-                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 shadow-md shadow-blue-200 transition-all"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
-                บันทึกทั้งหมด
-              </button>
+              <div className="flex items-center gap-2">
+                {recordedCount > 0 && (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="flex items-center gap-2 bg-white border border-red-200 text-red-600 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-red-50 transition-all"
+                    title={`ลบข้อมูล ${recordedCount} รายการของเดือนนี้`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+                    </svg>
+                    ลบข้อมูลเดือนนี้
+                    <span className="bg-red-100 text-red-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{recordedCount}</span>
+                  </button>
+                )}
+                <button
+                  onClick={saveAll}
+                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 shadow-md shadow-blue-200 transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                  บันทึกทั้งหมด
+                </button>
+              </div>
             )}
           </div>
 
@@ -477,6 +512,76 @@ export default function RecordPage() {
             <div className="text-center">
               <p className="text-slate-800 font-bold text-xl">กำลังอัปข้อมูล</p>
               <p className="text-slate-400 text-sm mt-1">กรุณารอสักครู่...</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {showDeleteConfirm && selectedClass && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-start gap-4 mb-5">
+              <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center shrink-0">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-slate-800 text-lg">ยืนยันการลบข้อมูล</h3>
+                <p className="text-slate-500 text-sm mt-1">
+                  คุณกำลังจะลบข้อมูลน้ำหนัก-ส่วนสูง ของชั้น{' '}
+                  <span className="font-bold text-slate-700">
+                    {classes.find(c => c.id === selectedClass)?.name}
+                  </span>{' '}
+                  ประจำเดือน{' '}
+                  <span className="font-bold text-slate-700">
+                    {THAI_MONTHS[selectedMonth - 1]} {thaiYear(selectedYear)}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-5 flex items-center gap-2">
+              <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="text-sm">
+                <span className="text-red-700 font-semibold">{recordedCount} รายการ</span>
+                <span className="text-red-600"> จะถูกลบถาวร ไม่สามารถกู้คืนได้</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={deleteMonth}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {deleting ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    กำลังลบ...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+                    </svg>
+                    ยืนยันลบ
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
