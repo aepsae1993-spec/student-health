@@ -45,15 +45,31 @@ create index if not exists idx_students_class_id on students(class_id);
 create index if not exists idx_measurements_student_id on measurements(student_id);
 create index if not exists idx_measurements_month_year on measurements(month, year);
 
--- Enable RLS (Row Level Security) - ปิดไว้ก่อนเพื่อง่ายต่อการพัฒนา
+-- Enable RLS (Row Level Security)
 alter table classes enable row level security;
 alter table students enable row level security;
 alter table measurements enable row level security;
 
--- Policy: allow all for now (ปรับแต่งหลัง deploy จริง)
-create policy "Allow all on classes" on classes for all using (true);
-create policy "Allow all on students" on students for all using (true);
-create policy "Allow all on measurements" on measurements for all using (true);
+-- Policy: allow all for now (ปรับแต่งหลัง deploy จริงเมื่อมี user auth)
+drop policy if exists "Allow all on classes" on classes;
+drop policy if exists "Allow all on students" on students;
+drop policy if exists "Allow all on measurements" on measurements;
+create policy "Allow all on classes" on classes for all using (true) with check (true);
+create policy "Allow all on students" on students for all using (true) with check (true);
+create policy "Allow all on measurements" on measurements for all using (true) with check (true);
+
+-- ===== GRANTS (จำเป็นสำหรับ Supabase ตั้งแต่ Oct 30, 2026) =====
+-- supabase-js ใช้ anon role โดย default (ก่อน login)
+-- ใช้ authenticated role หลังจาก user login
+-- service_role ใช้สำหรับ admin/cron/server-side
+grant usage on schema public to anon, authenticated, service_role;
+
+grant select, insert, update, delete on classes      to anon, authenticated, service_role;
+grant select, insert, update, delete on students     to anon, authenticated, service_role;
+grant select, insert, update, delete on measurements to anon, authenticated, service_role;
+
+-- Sequences สำหรับ serial columns (เช่น classes.id)
+grant usage, select on all sequences in schema public to anon, authenticated, service_role;
 
 -- เพิ่มคอลัมน์วันเกิด (รันเพิ่มถ้ามีฐานข้อมูลเดิมอยู่แล้ว)
 alter table students add column if not exists birth_date date;
