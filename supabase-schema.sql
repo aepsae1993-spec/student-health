@@ -5,6 +5,9 @@ create table if not exists classes (
   order_num integer not null
 );
 
+-- ป้องกันการสร้าง class ซ้ำชื่อ (ใช้ unique index รันซ้ำได้)
+create unique index if not exists classes_name_unique on classes(name);
+
 insert into classes (name, order_num) values
   ('อ.2', 1),
   ('อ.3', 2),
@@ -14,7 +17,7 @@ insert into classes (name, order_num) values
   ('ป.4', 6),
   ('ป.5', 7),
   ('ป.6', 8)
-on conflict do nothing;
+on conflict (name) do nothing;
 
 -- ตารางนักเรียน
 create table if not exists students (
