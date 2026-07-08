@@ -232,11 +232,11 @@ export default function ReportPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pdfMake: any = (pdfMakeMod as any).default ?? pdfMakeMod
 
-    pdfMake.vfs = {
+    const vfs = {
       'Sarabun-Regular.ttf': SarabunRegular,
       'Sarabun-Bold.ttf': SarabunBold,
     }
-    pdfMake.fonts = {
+    const fonts = {
       Sarabun: {
         normal: 'Sarabun-Regular.ttf',
         bold: 'Sarabun-Bold.ttf',
@@ -296,6 +296,9 @@ export default function ReportPage() {
     }
 
     const filename = `น้ำหนักส่วนสูง_${detailClass.name}_${THAI_MONTHS[selectedMonth - 1]}${selectedYear + 543}.pdf`
+    // pdfmake 0.3.x: ลงทะเบียน vfs + fonts ก่อนสร้าง PDF
+    pdfMake.addVirtualFileSystem(vfs)
+    pdfMake.addFonts(fonts)
     pdfMake.createPdf(docDefinition).download(filename)
   }
 
