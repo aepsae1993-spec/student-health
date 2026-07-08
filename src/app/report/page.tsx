@@ -161,12 +161,14 @@ export default function ReportPage() {
     ws.getRow(4).height = 22
 
     // ===== หัวตาราง (แถว 5) =====
+    // ขนาดฟอนต์หัวตารางแยกตามคอลัมน์ (อายุเดือน + น้ำหนักเทียบส่วนสูง = 12)
+    const headerFontSizes = [14, 14, 14, 14, 14, 12, 14, 14, 14, 14, 12]
     const headerRowNum = 5
     const headerRow = ws.getRow(headerRowNum)
     headers.forEach((h, i) => {
       const cell = headerRow.getCell(i + 1)
       cell.value = h
-      cell.font = { name: FONT, size: 14, bold: true }
+      cell.font = { name: FONT, size: headerFontSizes[i], bold: true }
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }
       cell.border = {
@@ -210,7 +212,7 @@ export default function ReportPage() {
 
     // ===== ความกว้างคอลัมน์ =====
     //          ที่ ชื่อ เพศ วันเกิด ปี เดือน นน. สส. นน/อายุ สส/อายุ นน/สส
-    const widths = [4, 22, 6, 11, 6, 7, 9, 9, 12, 12, 13]
+    const widths = [4, 27, 6, 13, 6, 7, 9, 9, 14, 14, 13]
     widths.forEach((w, i) => { ws.getColumn(i + 1).width = w })
 
     // ===== ดาวน์โหลด =====
