@@ -280,7 +280,8 @@ export default function ReportPage() {
         {
           table: {
             headerRows: 1,
-            widths: [16, 130, 26, 58, 26, 34, 42, 42, 62, 62, 66],
+            // รวม ~786pt เต็มหน้า A4 แนวนอน (ชื่อใช้ * ยืดตามที่เหลือ)
+            widths: [24, '*', 34, 66, 38, 46, 54, 54, 90, 90, 94],
             body: tableBody,
           },
           layout: {
@@ -288,8 +289,8 @@ export default function ReportPage() {
             vLineWidth: () => 0.7,
             hLineColor: () => '#000',
             vLineColor: () => '#000',
-            paddingLeft: () => 3, paddingRight: () => 3,
-            paddingTop: () => 3, paddingBottom: () => 3,
+            paddingLeft: () => 4, paddingRight: () => 4,
+            paddingTop: () => 4, paddingBottom: () => 4,
           },
         },
       ],
