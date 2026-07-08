@@ -245,7 +245,7 @@ export default function ReportPage() {
       },
     }
 
-    const headerCell = (t: string) => ({ text: t, bold: true, fontSize: 13, alignment: 'center', fillColor: '#d9e1f2' })
+    const headerCell = (t: string) => ({ text: t, bold: true, fontSize: 12, alignment: 'center', fillColor: '#d9e1f2' })
     const tableBody: unknown[][] = [
       [
         headerCell('ที่'), headerCell('ชื่อ-นามสกุล'), headerCell('เพศ'), headerCell('วันเกิด'),
@@ -255,8 +255,8 @@ export default function ReportPage() {
       ...detailRows.map((r, idx) => [
         { text: String(idx + 1), alignment: 'center' },
         { text: `${r.first_name} ${r.last_name}`, alignment: 'left' },
-        { text: r.gender, alignment: 'center' },
-        { text: formatThaiDate(r.birth_date), alignment: 'center' },
+        { text: r.gender, alignment: 'center', noWrap: true },
+        { text: formatThaiDate(r.birth_date), alignment: 'center', noWrap: true },
         { text: r.age != null ? String(r.age) : '', alignment: 'center' },
         { text: r.ageMonth != null ? String(r.ageMonth) : '', alignment: 'center' },
         { text: r.weight != null ? String(r.weight) : '', alignment: 'center' },
@@ -270,18 +270,18 @@ export default function ReportPage() {
     const docDefinition = {
       pageSize: 'A4',
       pageOrientation: 'landscape',
-      pageMargins: [28, 24, 28, 24] as [number, number, number, number],
-      defaultStyle: { font: 'Sarabun', fontSize: 14 },
+      pageMargins: [28, 20, 28, 20] as [number, number, number, number],
+      defaultStyle: { font: 'Sarabun', fontSize: 13 },
       content: [
-        { text: 'บันทึกน้ำหนัก-ส่วนสูง', bold: true, fontSize: 18, alignment: 'center' },
-        { text: `ชั้น ${detailClass.name}   ปีการศึกษา 2568`, bold: true, fontSize: 18, alignment: 'center' },
-        { text: 'โรงเรียนวัดบางขุด (อุ่นพิทยาคาร)', bold: true, fontSize: 18, alignment: 'center' },
-        { text: `ประจำเดือน ${THAI_MONTHS[selectedMonth - 1]} พ.ศ. ${selectedYear + 543}`, bold: true, fontSize: 15, alignment: 'center', margin: [0, 2, 0, 8] },
+        { text: 'บันทึกน้ำหนัก-ส่วนสูง', bold: true, fontSize: 16, alignment: 'center' },
+        { text: `ชั้น ${detailClass.name}   ปีการศึกษา 2568`, bold: true, fontSize: 16, alignment: 'center' },
+        { text: 'โรงเรียนวัดบางขุด (อุ่นพิทยาคาร)', bold: true, fontSize: 16, alignment: 'center' },
+        { text: `ประจำเดือน ${THAI_MONTHS[selectedMonth - 1]} พ.ศ. ${selectedYear + 543}`, bold: true, fontSize: 14, alignment: 'center', margin: [0, 2, 0, 7] },
         {
           table: {
             headerRows: 1,
             // รวม ~786pt เต็มหน้า A4 แนวนอน (ชื่อใช้ * ยืดตามที่เหลือ)
-            widths: [24, '*', 34, 66, 38, 46, 54, 54, 90, 90, 94],
+            widths: [22, '*', 32, 74, 34, 42, 50, 50, 80, 80, 84],
             body: tableBody,
           },
           layout: {
