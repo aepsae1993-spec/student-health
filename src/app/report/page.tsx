@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback } from 'react'
-import { supabase, type Class, type Student, THAI_MONTHS, calcAge, calcAgeMonths, weightForHeightStatus, weightStatus, heightStatus, formatThaiDate, exportCSV, daysInMonth } from '@/lib/supabase'
+import { supabase, type Class, type Student, THAI_MONTHS, calcAge, calcAgeMonths, weightForHeightStatus, weightStatus, heightStatus, formatThaiDate, daysInMonth } from '@/lib/supabase'
 
 type ClassStatus = { class: Class; totalStudents: number; recorded: number; notRecorded: number }
 
@@ -114,24 +114,106 @@ export default function ReportPage() {
     setDetailLoading(false)
   }
 
-  function downloadExcel() {
+  async function downloadExcel() {
     if (!detailClass) return
-    const data = detailRows.map(r => ({
-      'เลขที่': r.student_number,
-      'ชื่อ': r.first_name,
-      'นามสกุล': r.last_name,
-      'เพศ': r.gender,
-      'วันเกิด': formatThaiDate(r.birth_date),
-      'อายุ (ปี)': r.age ?? '',
-      'อายุ (เดือน)': r.ageMonth ?? '',
-      'น้ำหนัก (กก.)': r.weight ?? '',
-      'ส่วนสูง (ซม.)': r.height ?? '',
-      'BMI': r.bmi ?? '',
-      'น้ำหนัก/ส่วนสูง': r.bmiLabel,
-      'น้ำหนักตามเกณฑ์': r.wLabel !== '-' ? r.wLabel : '',
-      'ส่วนสูงตามเกณฑ์': r.hLabel !== '-' ? r.hLabel : '',
-    }))
-    exportCSV(data, `${detailClass.name}_${THAI_MONTHS[selectedMonth - 1]}_${selectedYear + 543}.csv`)
+    const ExcelJS = (await import('exceljs')).default
+    const FONT = 'TH Sarabun PSK'
+
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet(detailClass.name, {
+      pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+    })
+
+    const headers = [
+      'ที่', 'ชื่อ-นามสกุล', 'เพศ', 'วันเกิด', 'อายุ (ปี)', 'อายุ (เดือน)',
+      'น้ำหนัก (กก.)', 'ส่วนสูง (ซม.)', 'น้ำหนักเทียบอายุ', 'ส่วนสูงเทียบอายุ', 'น้ำหนักเทียบส่วนสูง',
+    ]
+    const lastCol = headers.length // 11
+    const colLetter = (n: number) => String.fromCharCode(64 + n)
+    const lastLetter = colLetter(lastCol)
+
+    // ===== หัวข้อ (3 บรรทัด merge) =====
+    const titles = [
+      'บันทึกน้ำหนัก-ส่วนสูง',
+      `ชั้น ${detailClass.name}   ปีการศึกษา 2568`,
+      'โรงเรียนวัดบางขุด (อุ่นพิทยาคาร)',
+    ]
+    titles.forEach((text, i) => {
+      const rowNum = i + 1
+      ws.mergeCells(`A${rowNum}:${lastLetter}${rowNum}`)
+      const cell = ws.getCell(`A${rowNum}`)
+      cell.value = text
+      cell.font = { name: FONT, size: 18, bold: true }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      ws.getRow(rowNum).height = 26
+    })
+    // บรรทัดเดือน
+    ws.mergeCells(`A4:${lastLetter}4`)
+    const subCell = ws.getCell('A4')
+    subCell.value = `ประจำเดือน ${THAI_MONTHS[selectedMonth - 1]} พ.ศ. ${selectedYear + 543}`
+    subCell.font = { name: FONT, size: 16, bold: true }
+    subCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    ws.getRow(4).height = 22
+
+    // ===== หัวตาราง (แถว 5) =====
+    const headerRowNum = 5
+    const headerRow = ws.getRow(headerRowNum)
+    headers.forEach((h, i) => {
+      const cell = headerRow.getCell(i + 1)
+      cell.value = h
+      cell.font = { name: FONT, size: 16, bold: true }
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }
+      cell.border = {
+        top: { style: 'thin' }, left: { style: 'thin' },
+        bottom: { style: 'thin' }, right: { style: 'thin' },
+      }
+    })
+    headerRow.height = 24
+
+    // ===== เนื้อหา =====
+    detailRows.forEach((r, idx) => {
+      const rowNum = headerRowNum + 1 + idx
+      const row = ws.getRow(rowNum)
+      const values = [
+        r.student_number,
+        `${r.first_name} ${r.last_name}`,
+        r.gender,
+        formatThaiDate(r.birth_date),
+        r.age ?? '',
+        r.ageMonth ?? '',
+        r.weight ?? '',
+        r.height ?? '',
+        r.wLabel !== '-' ? r.wLabel : '',
+        r.hLabel !== '-' ? r.hLabel : '',
+        r.bmiLabel !== '-' ? r.bmiLabel : '',
+      ]
+      values.forEach((v, i) => {
+        const cell = row.getCell(i + 1)
+        cell.value = v as string | number
+        cell.font = { name: FONT, size: 16 }
+        // จัดชิดซ้ายเฉพาะคอลัมน์ชื่อ นอกนั้น center
+        cell.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical: 'middle' }
+        cell.border = {
+          top: { style: 'thin' }, left: { style: 'thin' },
+          bottom: { style: 'thin' }, right: { style: 'thin' },
+        }
+      })
+      row.height = 20
+    })
+
+    // ===== ความกว้างคอลัมน์ =====
+    const widths = [5, 26, 6, 12, 8, 9, 12, 12, 16, 16, 18]
+    widths.forEach((w, i) => { ws.getColumn(i + 1).width = w })
+
+    // ===== ดาวน์โหลด =====
+    const buffer = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `น้ำหนักส่วนสูง_${detailClass.name}_${THAI_MONTHS[selectedMonth - 1]}${selectedYear + 543}.xlsx`
+    a.click()
+    URL.revokeObjectURL(a.href)
   }
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
