@@ -253,14 +253,14 @@ export default function ReportPage() {
   @page { size: A4 landscape; margin: 1cm; }
   * { font-family: 'TH Sarabun PSK', 'Sarabun', sans-serif; box-sizing: border-box; }
   body { margin: 0; color: #000; }
-  .title { text-align: center; font-weight: 700; font-size: 24px; line-height: 1.3; }
-  .sub   { text-align: center; font-weight: 700; font-size: 20px; margin-bottom: 6px; }
+  .title { text-align: center; font-weight: 700; font-size: 20px; line-height: 1.2; }
+  .sub   { text-align: center; font-weight: 700; font-size: 16px; margin-bottom: 5px; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { border: 1px solid #000; padding: 2px 4px; font-size: 21px; }
-  th { background: #d9e1f2; font-weight: 700; text-align: center; font-size: 18px; line-height: 1.1; }
+  th, td { border: 1px solid #000; padding: 0 4px; font-size: 15px; line-height: 1.15; }
+  th { background: #d9e1f2; font-weight: 700; text-align: center; font-size: 14px; line-height: 1.05; }
   td.c { text-align: center; }
   td.l { text-align: left; }
-  td.sm { font-size: 18px; }
+  td.sm { font-size: 13px; }
   thead { display: table-header-group; }
   tr { page-break-inside: avoid; }
 </style></head>
