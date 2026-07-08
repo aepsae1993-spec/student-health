@@ -225,6 +225,82 @@ export default function ReportPage() {
     URL.revokeObjectURL(a.href)
   }
 
+  function downloadPDF() {
+    if (!detailClass) return
+    const esc = (v: unknown) =>
+      String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+    const rowsHtml = detailRows.map((r, idx) => `
+      <tr>
+        <td class="c">${idx + 1}</td>
+        <td class="l">${esc(`${r.first_name} ${r.last_name}`)}</td>
+        <td class="c">${esc(r.gender)}</td>
+        <td class="c sm">${esc(formatThaiDate(r.birth_date))}</td>
+        <td class="c">${esc(r.age ?? '')}</td>
+        <td class="c">${esc(r.ageMonth ?? '')}</td>
+        <td class="c">${esc(r.weight ?? '')}</td>
+        <td class="c">${esc(r.height ?? '')}</td>
+        <td class="c">${esc(r.wLabel !== '-' ? r.wLabel : '')}</td>
+        <td class="c">${esc(r.hLabel !== '-' ? r.hLabel : '')}</td>
+        <td class="c">${esc(r.bmiLabel !== '-' ? r.bmiLabel : '')}</td>
+      </tr>`).join('')
+
+    const html = `<!DOCTYPE html>
+<html lang="th"><head><meta charset="utf-8">
+<title>น้ำหนักส่วนสูง ${esc(detailClass.name)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4 landscape; margin: 1cm; }
+  * { font-family: 'TH Sarabun PSK', 'Sarabun', sans-serif; box-sizing: border-box; }
+  body { margin: 0; color: #000; }
+  .title { text-align: center; font-weight: 700; font-size: 24px; line-height: 1.3; }
+  .sub   { text-align: center; font-weight: 700; font-size: 20px; margin-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #000; padding: 2px 4px; font-size: 21px; }
+  th { background: #d9e1f2; font-weight: 700; text-align: center; font-size: 18px; line-height: 1.1; }
+  td.c { text-align: center; }
+  td.l { text-align: left; }
+  td.sm { font-size: 18px; }
+  thead { display: table-header-group; }
+  tr { page-break-inside: avoid; }
+</style></head>
+<body>
+  <div class="title">บันทึกน้ำหนัก-ส่วนสูง</div>
+  <div class="title">ชั้น ${esc(detailClass.name)}&nbsp;&nbsp;&nbsp;ปีการศึกษา 2568</div>
+  <div class="title">โรงเรียนวัดบางขุด (อุ่นพิทยาคาร)</div>
+  <div class="sub">ประจำเดือน ${esc(THAI_MONTHS[selectedMonth - 1])} พ.ศ. ${selectedYear + 543}</div>
+  <table>
+    <thead><tr>
+      <th style="width:3%">ที่</th>
+      <th style="width:20%">ชื่อ-นามสกุล</th>
+      <th style="width:6%">เพศ</th>
+      <th style="width:11%">วันเกิด</th>
+      <th style="width:5%">อายุ<br>(ปี)</th>
+      <th style="width:6%">อายุ<br>(เดือน)</th>
+      <th style="width:8%">น้ำหนัก<br>(กก.)</th>
+      <th style="width:8%">ส่วนสูง<br>(ซม.)</th>
+      <th style="width:11%">น้ำหนัก<br>เทียบอายุ</th>
+      <th style="width:11%">ส่วนสูง<br>เทียบอายุ</th>
+      <th style="width:11%">น้ำหนัก<br>เทียบส่วนสูง</th>
+    </tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>
+  <script>
+    window.onload = function () {
+      setTimeout(function () { window.print(); }, 400);
+    };
+  </script>
+</body></html>`
+
+    const w = window.open('', '_blank')
+    if (!w) {
+      alert('กรุณาอนุญาตให้เปิดหน้าต่างใหม่ (popup) เพื่อพิมพ์ PDF')
+      return
+    }
+    w.document.write(html)
+    w.document.close()
+  }
+
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
   const thaiYear = (y: number) => y + 543
 
@@ -464,6 +540,14 @@ export default function ReportPage() {
                 <p className="text-slate-400 text-sm mt-0.5">รายชื่อและข้อมูลน้ำหนัก-ส่วนสูง (อายุ ณ วันที่เลือก)</p>
               </div>
               <div className="flex items-center gap-3">
+                <button onClick={downloadPDF}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-rose-500 to-red-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-red-700 shadow-md shadow-red-200 transition-all">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-6 4h6" />
+                  </svg>
+                  โหลด PDF
+                </button>
                 <button onClick={downloadExcel}
                   className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:from-emerald-600 hover:to-teal-700 shadow-md shadow-emerald-200 transition-all">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
