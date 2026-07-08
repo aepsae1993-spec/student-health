@@ -225,80 +225,78 @@ export default function ReportPage() {
     URL.revokeObjectURL(a.href)
   }
 
-  function downloadPDF() {
+  async function downloadPDF() {
     if (!detailClass) return
-    const esc = (v: unknown) =>
-      String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const pdfMakeMod = await import('pdfmake/build/pdfmake')
+    const { SarabunRegular, SarabunBold } = await import('@/lib/fonts/sarabun')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pdfMake: any = (pdfMakeMod as any).default ?? pdfMakeMod
 
-    const rowsHtml = detailRows.map((r, idx) => `
-      <tr>
-        <td class="c">${idx + 1}</td>
-        <td class="l">${esc(`${r.first_name} ${r.last_name}`)}</td>
-        <td class="c">${esc(r.gender)}</td>
-        <td class="c sm">${esc(formatThaiDate(r.birth_date))}</td>
-        <td class="c">${esc(r.age ?? '')}</td>
-        <td class="c">${esc(r.ageMonth ?? '')}</td>
-        <td class="c">${esc(r.weight ?? '')}</td>
-        <td class="c">${esc(r.height ?? '')}</td>
-        <td class="c">${esc(r.wLabel !== '-' ? r.wLabel : '')}</td>
-        <td class="c">${esc(r.hLabel !== '-' ? r.hLabel : '')}</td>
-        <td class="c">${esc(r.bmiLabel !== '-' ? r.bmiLabel : '')}</td>
-      </tr>`).join('')
-
-    const html = `<!DOCTYPE html>
-<html lang="th"><head><meta charset="utf-8">
-<title>น้ำหนักส่วนสูง ${esc(detailClass.name)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
-<style>
-  @page { size: A4 landscape; margin: 1cm; }
-  * { font-family: 'TH Sarabun PSK', 'Sarabun', sans-serif; box-sizing: border-box; }
-  body { margin: 0; color: #000; }
-  .title { text-align: center; font-weight: 700; font-size: 20px; line-height: 1.2; }
-  .sub   { text-align: center; font-weight: 700; font-size: 16px; margin-bottom: 5px; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { border: 1px solid #000; padding: 0 4px; font-size: 15px; line-height: 1.15; }
-  th { background: #d9e1f2; font-weight: 700; text-align: center; font-size: 14px; line-height: 1.05; }
-  td.c { text-align: center; }
-  td.l { text-align: left; }
-  td.sm { font-size: 13px; }
-  thead { display: table-header-group; }
-  tr { page-break-inside: avoid; }
-</style></head>
-<body>
-  <div class="title">บันทึกน้ำหนัก-ส่วนสูง</div>
-  <div class="title">ชั้น ${esc(detailClass.name)}&nbsp;&nbsp;&nbsp;ปีการศึกษา 2568</div>
-  <div class="title">โรงเรียนวัดบางขุด (อุ่นพิทยาคาร)</div>
-  <div class="sub">ประจำเดือน ${esc(THAI_MONTHS[selectedMonth - 1])} พ.ศ. ${selectedYear + 543}</div>
-  <table>
-    <thead><tr>
-      <th style="width:3%">ที่</th>
-      <th style="width:20%">ชื่อ-นามสกุล</th>
-      <th style="width:6%">เพศ</th>
-      <th style="width:11%">วันเกิด</th>
-      <th style="width:5%">อายุ<br>(ปี)</th>
-      <th style="width:6%">อายุ<br>(เดือน)</th>
-      <th style="width:8%">น้ำหนัก<br>(กก.)</th>
-      <th style="width:8%">ส่วนสูง<br>(ซม.)</th>
-      <th style="width:11%">น้ำหนัก<br>เทียบอายุ</th>
-      <th style="width:11%">ส่วนสูง<br>เทียบอายุ</th>
-      <th style="width:11%">น้ำหนัก<br>เทียบส่วนสูง</th>
-    </tr></thead>
-    <tbody>${rowsHtml}</tbody>
-  </table>
-  <script>
-    window.onload = function () {
-      setTimeout(function () { window.print(); }, 400);
-    };
-  </script>
-</body></html>`
-
-    const w = window.open('', '_blank')
-    if (!w) {
-      alert('กรุณาอนุญาตให้เปิดหน้าต่างใหม่ (popup) เพื่อพิมพ์ PDF')
-      return
+    pdfMake.vfs = {
+      'Sarabun-Regular.ttf': SarabunRegular,
+      'Sarabun-Bold.ttf': SarabunBold,
     }
-    w.document.write(html)
-    w.document.close()
+    pdfMake.fonts = {
+      Sarabun: {
+        normal: 'Sarabun-Regular.ttf',
+        bold: 'Sarabun-Bold.ttf',
+        italics: 'Sarabun-Regular.ttf',
+        bolditalics: 'Sarabun-Bold.ttf',
+      },
+    }
+
+    const headerCell = (t: string) => ({ text: t, bold: true, fontSize: 13, alignment: 'center', fillColor: '#d9e1f2' })
+    const tableBody: unknown[][] = [
+      [
+        headerCell('ที่'), headerCell('ชื่อ-นามสกุล'), headerCell('เพศ'), headerCell('วันเกิด'),
+        headerCell('อายุ\n(ปี)'), headerCell('อายุ\n(เดือน)'), headerCell('น้ำหนัก\n(กก.)'), headerCell('ส่วนสูง\n(ซม.)'),
+        headerCell('น้ำหนัก\nเทียบอายุ'), headerCell('ส่วนสูง\nเทียบอายุ'), headerCell('น้ำหนัก\nเทียบส่วนสูง'),
+      ],
+      ...detailRows.map((r, idx) => [
+        { text: String(idx + 1), alignment: 'center' },
+        { text: `${r.first_name} ${r.last_name}`, alignment: 'left' },
+        { text: r.gender, alignment: 'center' },
+        { text: formatThaiDate(r.birth_date), alignment: 'center' },
+        { text: r.age != null ? String(r.age) : '', alignment: 'center' },
+        { text: r.ageMonth != null ? String(r.ageMonth) : '', alignment: 'center' },
+        { text: r.weight != null ? String(r.weight) : '', alignment: 'center' },
+        { text: r.height != null ? String(r.height) : '', alignment: 'center' },
+        { text: r.wLabel !== '-' ? r.wLabel : '', alignment: 'center' },
+        { text: r.hLabel !== '-' ? r.hLabel : '', alignment: 'center' },
+        { text: r.bmiLabel !== '-' ? r.bmiLabel : '', alignment: 'center' },
+      ]),
+    ]
+
+    const docDefinition = {
+      pageSize: 'A4',
+      pageOrientation: 'landscape',
+      pageMargins: [28, 24, 28, 24] as [number, number, number, number],
+      defaultStyle: { font: 'Sarabun', fontSize: 14 },
+      content: [
+        { text: 'บันทึกน้ำหนัก-ส่วนสูง', bold: true, fontSize: 18, alignment: 'center' },
+        { text: `ชั้น ${detailClass.name}   ปีการศึกษา 2568`, bold: true, fontSize: 18, alignment: 'center' },
+        { text: 'โรงเรียนวัดบางขุด (อุ่นพิทยาคาร)', bold: true, fontSize: 18, alignment: 'center' },
+        { text: `ประจำเดือน ${THAI_MONTHS[selectedMonth - 1]} พ.ศ. ${selectedYear + 543}`, bold: true, fontSize: 15, alignment: 'center', margin: [0, 2, 0, 8] },
+        {
+          table: {
+            headerRows: 1,
+            widths: [16, 130, 26, 58, 26, 34, 42, 42, 62, 62, 66],
+            body: tableBody,
+          },
+          layout: {
+            hLineWidth: () => 0.7,
+            vLineWidth: () => 0.7,
+            hLineColor: () => '#000',
+            vLineColor: () => '#000',
+            paddingLeft: () => 3, paddingRight: () => 3,
+            paddingTop: () => 3, paddingBottom: () => 3,
+          },
+        },
+      ],
+    }
+
+    const filename = `น้ำหนักส่วนสูง_${detailClass.name}_${THAI_MONTHS[selectedMonth - 1]}${selectedYear + 543}.pdf`
+    pdfMake.createPdf(docDefinition).download(filename)
   }
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
