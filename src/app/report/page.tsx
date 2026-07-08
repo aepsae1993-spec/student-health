@@ -121,12 +121,17 @@ export default function ReportPage() {
 
     const wb = new ExcelJS.Workbook()
     const ws = wb.addWorksheet(detailClass.name, {
-      pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+      pageSetup: {
+        paperSize: 9, orientation: 'landscape',
+        fitToPage: true, fitToWidth: 1, fitToHeight: 1,
+        margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
+      },
     })
 
+    // หัวตาราง 2 บรรทัด (\n) เพื่อไม่ให้กว้างล้น
     const headers = [
-      'ที่', 'ชื่อ-นามสกุล', 'เพศ', 'วันเกิด', 'อายุ (ปี)', 'อายุ (เดือน)',
-      'น้ำหนัก (กก.)', 'ส่วนสูง (ซม.)', 'น้ำหนักเทียบอายุ', 'ส่วนสูงเทียบอายุ', 'น้ำหนักเทียบส่วนสูง',
+      'ที่', 'ชื่อ-นามสกุล', 'เพศ', 'วันเกิด', 'อายุ\n(ปี)', 'อายุ\n(เดือน)',
+      'น้ำหนัก\n(กก.)', 'ส่วนสูง\n(ซม.)', 'น้ำหนัก\nเทียบอายุ', 'ส่วนสูง\nเทียบอายุ', 'น้ำหนัก\nเทียบส่วนสูง',
     ]
     const lastCol = headers.length // 11
     const colLetter = (n: number) => String.fromCharCode(64 + n)
@@ -145,7 +150,7 @@ export default function ReportPage() {
       cell.value = text
       cell.font = { name: FONT, size: 18, bold: true }
       cell.alignment = { horizontal: 'center', vertical: 'middle' }
-      ws.getRow(rowNum).height = 26
+      ws.getRow(rowNum).height = 24
     })
     // บรรทัดเดือน
     ws.mergeCells(`A4:${lastLetter}4`)
@@ -161,7 +166,7 @@ export default function ReportPage() {
     headers.forEach((h, i) => {
       const cell = headerRow.getCell(i + 1)
       cell.value = h
-      cell.font = { name: FONT, size: 16, bold: true }
+      cell.font = { name: FONT, size: 14, bold: true }
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }
       cell.border = {
@@ -169,7 +174,7 @@ export default function ReportPage() {
         bottom: { style: 'thin' }, right: { style: 'thin' },
       }
     })
-    headerRow.height = 24
+    headerRow.height = 38
 
     // ===== เนื้อหา =====
     detailRows.forEach((r, idx) => {
@@ -191,7 +196,8 @@ export default function ReportPage() {
       values.forEach((v, i) => {
         const cell = row.getCell(i + 1)
         cell.value = v as string | number
-        cell.font = { name: FONT, size: 16 }
+        // วันเกิด (i=3) ฟอนต์เล็กลงเล็กน้อยกันล้น
+        cell.font = { name: FONT, size: i === 3 ? 14 : 16 }
         // จัดชิดซ้ายเฉพาะคอลัมน์ชื่อ นอกนั้น center
         cell.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical: 'middle' }
         cell.border = {
@@ -199,11 +205,12 @@ export default function ReportPage() {
           bottom: { style: 'thin' }, right: { style: 'thin' },
         }
       })
-      row.height = 20
+      row.height = 19
     })
 
     // ===== ความกว้างคอลัมน์ =====
-    const widths = [5, 26, 6, 12, 8, 9, 12, 12, 16, 16, 18]
+    //          ที่ ชื่อ เพศ วันเกิด ปี เดือน นน. สส. นน/อายุ สส/อายุ นน/สส
+    const widths = [4, 22, 6, 11, 6, 7, 9, 9, 12, 12, 13]
     widths.forEach((w, i) => { ws.getColumn(i + 1).width = w })
 
     // ===== ดาวน์โหลด =====
