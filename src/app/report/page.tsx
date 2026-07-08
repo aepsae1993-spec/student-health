@@ -212,7 +212,7 @@ export default function ReportPage() {
 
     // ===== ความกว้างคอลัมน์ =====
     //          ที่ ชื่อ เพศ วันเกิด ปี เดือน นน. สส. นน/อายุ สส/อายุ นน/สส
-    const widths = [4, 27, 6, 13, 6, 7, 9, 9, 14, 14, 13]
+    const widths = [4, 27, 6, 13, 6, 7, 9, 9, 16, 14, 13]
     widths.forEach((w, i) => { ws.getColumn(i + 1).width = w })
 
     // ===== ดาวน์โหลด =====
